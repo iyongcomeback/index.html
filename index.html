@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>TOKO ALI - Kehadiran</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<!-- Library XLSX untuk Export ke Excel -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body class="bg-gradient-to-b from-blue-200 via-white to-pink-200 min-h-screen font-sans">
+
+<!-- Login Page -->
+<div id="loginPage" class="max-w-xl mx-auto p-6 text-center relative z-20">
+  <h1 class="text-4xl font-extrabold text-blue-800 mb-6">TOKO ALI</h1>
+  <div class="mb-6">
+    <h2 class="text-lg font-bold mb-2">Pilih Nama</h2>
+    <div id="namaButtons" class="flex justify-center gap-4 flex-wrap">
+      <button data-name="ADMIN" class="nama-btn bg-white border-2 border-blue-400 text-blue-700 font-semibold py-2 px-4 rounded-xl">ADMIN</button>
+      <button data-name="IYAD"  class="nama-btn bg-white border-2 border-blue-400 text-blue-700 font-semibold py-2 px-4 rounded-xl">IYAD</button>
+      <button data-name="BAYU"  class="nama-btn bg-white border-2 border-blue-400 text-blue-700 font-semibold py-2 px-4 rounded-xl">BAYU</button>
+      <button data-name="GUGUN" class="nama-btn bg-white border-2 border-blue-400 text-blue-700 font-semibold py-2 px-4 rounded-xl">GUGUN</button>
+    </div>
+  </div>
+  <div class="mb-6">
+    <h2 class="text-lg font-bold mb-2">Pilih Aksi</h2>
+    <div id="aksiButtons" class="flex justify-center gap-4">
+      <button data-action="MASUK" class="aksi-btn bg-white border-2 border-blue-400 text-blue-700 font-semibold py-2 px-4 rounded-xl">MASUK</button>
+      <button data-action="PULANG" class="aksi-btn bg-white border-2 border-pink-400 text-pink-700 font-semibold py-2 px-4 rounded-xl">PULANG</button>
+    </div>
+  </div>
+  <form id="loginForm">
+    <input type="hidden" id="selectedName" />
+    <input type="hidden" id="selectedAction" />
+    <div class="relative mb-4">
+      <input id="kode" type="password" required placeholder="Masukkan Kode"
+           class="w-full p-3 pr-12 border-2 border-pink-300 rounded-lg shadow focus:outline-none focus:ring-2 focus:ring-pink-500"/>
+    </div>
+    <button type="submit" class="bg-blue-700 hover:bg-blue-800 text-white font-semibold py-2 px-6 rounded-full shadow-lg">Masuk</button>
+  </form>
+</div>
+
+<!-- Karyawan Page -->
+<div id="karyawanPage" class="max-w-2xl mx-auto p-6 hidden">
+  <h2 class="text-2xl font-bold text-blue-800 mb-4">
+    <span id="karyawanAction"></span> - <span id="karyawanName"></span>
+  </h2>
+  <div id="pendapatanForm" class="mb-4 hidden">
+    <input id="pendapatanInput" type="text" placeholder="Masukkan Pendapatan (gunakan titik)" class="p-2 border rounded w-1/2" />
+    <button id="btnSimpanPendapatan" class="ml-2 bg-green-500 text-white px-4 py-2 rounded">Simpan</button>
+  </div>
+  <table class="min-w-full border border-gray-300 bg-white">
+    <thead class="bg-gray-200">
+      <tr>
+        <th class="border px-4 py-2">Tanggal</th>
+        <th class="border px-4 py-2">Masuk</th>
+        <th class="border px-4 py-2">Pulang</th>
+        <th class="border px-4 py-2">Pendapatan</th>
+        <th class="border px-4 py-2">Komisi (10%)</th>
+      </tr>
+    </thead>
+    <tbody id="tabelKaryawan"></tbody>
+  </table>
+  <div class="mt-4 flex gap-2">
+    <button onclick="selesaiKaryawan()" class="bg-red-500 text-white px-4 py-2 rounded">Selesai</button>
+  </div>
+</div>
+
+<!-- Admin Page -->
+<div id="adminPage" class="max-w-4xl mx-auto p-6 hidden">
+  <h2 class="text-2xl font-bold text-blue-800 mb-4">Daftar Kehadiran Semua Karyawan</h2>
+  <table class="min-w-full border border-gray-300 bg-white">
+    <thead class="bg-gray-200">
+      <tr>
+        <th class="border px-4 py-2">Nama</th>
+        <th class="border px-4 py-2">Tanggal</th>
+        <th class="border px-4 py-2">Masuk</th>
+        <th class="border px-4 py-2">Pulang</th>
+        <th class="border px-4 py-2">Pendapatan</th>
+        <th class="border px-4 py-2">Komisi (10%)</th>
+        <th class="border px-4 py-2">Edit</th>
+      </tr>
+    </thead>
+    <tbody id="tabelAdmin"></tbody>
+  </table>
+  <div class="mt-4 flex gap-2">
+    <button onclick="exportToExcel()" class="bg-green-500 text-white px-4 py-2 rounded">Export ke Excel</button>
+    <button onclick="resetData()" class="bg-yellow-500 text-white px-4 py-2 rounded">Reset Semua Data</button>
+    <button onclick="selesaiAdmin()" class="bg-red-500 text-white px-4 py-2 rounded">Selesai</button>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'tokoAli_dataKaryawan_v1';
+const SESSION_KEY = 'tokoAli_session';
+let selectedName = "";
+let selectedAction = "";
+let dataKaryawan = {};
+
+function loadLocalData(){
+  const raw=localStorage.getItem(STORAGE_KEY);
+  dataKaryawan=raw?JSON.parse(raw):{};
+}
+function saveLocalData(){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(dataKaryawan));
+
+  // Kirim setiap perubahan ke Google Sheets
+  const scriptURL = "https://script.google.com/macros/s/AKfycbzSyOxKiNvWco3xM9SfLyUcsohQTmXah6xUP1LSXq0ueTpDuYGL283gLn_ZrPllng88MA/exec";
+
+  Object.keys(dataKaryawan).forEach(nama => {
+    dataKaryawan[nama].forEach(row => {
+      fetch(scriptURL, {
+        method: 'POST',
+        body: JSON.stringify({
+          nama: nama,
+          tanggal: row.tanggal,
+          masuk: row.masuk,
+          pulang: row.pulang,
+          pendapatan: row.pendapatan,
+          komisi: row.komisi
+        })
+      }).catch(err => console.error("Gagal kirim ke Sheets:", err));
+    });
+  });
+}
+function saveSession(page,name,action){
+  localStorage.setItem(SESSION_KEY,JSON.stringify({page,name,action}));
+}
+function loadSession(){
+  const raw=localStorage.getItem(SESSION_KEY);
+  return raw?JSON.parse(raw):null;
+}
+function clearSession(){
+  localStorage.removeItem(SESSION_KEY);
+}
+
+loadLocalData();
+
+// Pilih Nama
+document.querySelectorAll('.nama-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.nama-btn').forEach(b=>b.classList.remove('bg-blue-500','text-white'));
+    btn.classList.add('bg-blue-500','text-white');
+    selectedName=btn.dataset.name;
+    document.getElementById('selectedName').value=selectedName;
+  });
+});
+
+// Pilih Aksi
+document.querySelectorAll('.aksi-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    if(!selectedName){alert("Pilih nama dulu.");return;}
+    if(selectedName==="ADMIN" && btn.dataset.action==="PULANG"){alert("Admin hanya bisa MASUK.");return;}
+    document.querySelectorAll('.aksi-btn').forEach(b=>{
+      b.classList.remove('bg-blue-500','bg-pink-500','text-white');
+      b.classList.add('bg-white');
+    });
+    if(btn.dataset.action==="MASUK"){btn.classList.remove('bg-white');btn.classList.add('bg-blue-500','text-white');}
+    if(btn.dataset.action==="PULANG"){btn.classList.remove('bg-white');btn.classList.add('bg-pink-500','text-white');}
+    selectedAction=btn.dataset.action;
+    document.getElementById('selectedAction').value=selectedAction;
+  });
+});
+
+// Reset Semua Data
+function resetData(){
+  if(confirm('Apakah Anda yakin ingin menghapus semua data kehadiran?')){
+    dataKaryawan = {};
+    saveLocalData();
+    renderAdminTable();
+    if(!document.getElementById('karyawanPage').classList.contains('hidden')){
+      renderKaryawanTable(selectedName);
+    }
+    alert('Semua data kehadiran berhasil dihapus.');
+  }
+}
+
+// Export ke Excel
+function exportToExcel(){
+  let wb = XLSX.utils.book_new();
+  let data = [["Nama", "Tanggal", "Masuk", "Pulang", "Pendapatan", "Komisi (10%)"]];
+  Object.keys(dataKaryawan).forEach(nama=>{
+    (dataKaryawan[nama]||[]).forEach(row=>{
+      data.push([
+        nama,
+        row.tanggal || "",
+        row.masuk || "",
+        row.pulang || "",
+        row.pendapatan !== undefined ? row.pendapatan : "",
+        row.komisi !== undefined ? row.komisi : ""
+      ]);
+    });
+  });
+  let ws = XLSX.utils.aoa_to_sheet(data);
+  XLSX.utils.book_append_sheet(wb, ws, "Kehadiran");
+  XLSX.writeFile(wb, "data_kehadiran.xlsx");
+}
+
+// Resume Sesi
+window.addEventListener('DOMContentLoaded',()=>{
+  const session=loadSession();
+  if(session){
+    selectedName=session.name;
+    selectedAction=session.action;
+    if(session.page==="karyawanPage"){
+      document.getElementById('loginPage').classList.add('hidden');
+      document.getElementById('karyawanPage').classList.remove('hidden');
+      document.getElementById('karyawanName').innerText=selectedName;
+      document.getElementById('karyawanAction').innerText=selectedAction;
+      renderKaryawanTable(selectedName);
+    }
+    if(session.page==="adminPage"){
+      document.getElementById('loginPage').classList.add('hidden');
+      document.getElementById('adminPage').classList.remove('hidden');
+      renderAdminTable();
+    }
+  }
+});
+
+// Validasi kode
+const validCodes={
+  "ADMIN":["admin","Admin","ADMIN","1"],
+  "IYAD":["001","kry001","KRY001","1"],
+  "BAYU":["002","kry002","KRY002","2"],
+  "GUGUN":["003","kry003","KRY003","3"]
+};
+
+// Login
+document.getElementById('loginForm').addEventListener('submit',(e)=>{
+  e.preventDefault();
+  const kode=document.getElementById('kode').value.trim();
+  if(!selectedName||!selectedAction){alert('Pilih nama dan aksi.');return;}
+  if(!validCodes[selectedName].includes(kode)){alert('Kode salah!');return;}
+  document.getElementById('loginPage').classList.add('hidden');
+  if(selectedName==='ADMIN'){
+    document.getElementById('adminPage').classList.remove('hidden');
+    renderAdminTable();
+    saveSession('adminPage',selectedName,selectedAction);
+    return;
+  }
+  if(!dataKaryawan[selectedName])dataKaryawan[selectedName]=[];
+  const today=new Date().toLocaleDateString('id-ID');
+  const now=new Date().toLocaleTimeString('id-ID');
+  if(selectedAction==='MASUK'){
+    let entry=dataKaryawan[selectedName].find(r=>r.tanggal===today);
+    if(!entry){
+      dataKaryawan[selectedName].push({tanggal:today,masuk:now});
+      saveLocalData();
+    }
+  }
+  if(selectedAction==='PULANG'){
+    let entry=dataKaryawan[selectedName].find(r=>r.tanggal===today);
+    if(!entry||!entry.masuk){
+      alert('Belum ada data MASUK hari ini.');
+      document.getElementById('loginPage').classList.remove('hidden');
+      return;
+    }
+    if(entry.pendapatan !== undefined){
+      alert('Pendapatan sudah diinput hari ini. Tidak bisa input ulang.');
+      document.getElementById('loginPage').classList.remove('hidden');
+      return;
+    }
+    entry.pulang=now;
+    saveLocalData();
+    document.getElementById('pendapatanForm').classList.remove('hidden');
+  }
+  document.getElementById('karyawanPage').classList.remove('hidden');
+  document.getElementById('karyawanName').innerText=selectedName;
+  document.getElementById('karyawanAction').innerText=selectedAction;
+  renderKaryawanTable(selectedName);
+  saveSession('karyawanPage',selectedName,selectedAction);
+});
+
+function renderKaryawanTable(nama){
+  const tbody=document.getElementById('tabelKaryawan');
+  tbody.innerHTML='';
+  (dataKaryawan[nama]||[]).forEach(row=>{
+    tbody.innerHTML+=`
+      <tr>
+        <td class="border px-4 py-2">${row.tanggal}</td>
+        <td class="border px-4 py-2">${row.masuk||''}</td>
+        <td class="border px-4 py-2">${row.pulang||''}</td>
+        <td class="border px-4 py-2">${row.pendapatan!==undefined?row.pendapatan:''}</td>
+        <td class="border px-4 py-2">${row.komisi!==undefined?row.komisi:''}</td>
+      </tr>`;
+  });
+}
+
+document.getElementById('btnSimpanPendapatan').addEventListener('click',(e)=>{
+  e.preventDefault();
+  const pendapatan=Number(document.getElementById('pendapatanInput').value.replace(/\./g,''));
+  if(!pendapatan){alert('Masukkan pendapatan!');return;}
+  const nama=selectedName;
+  const today=new Date().toLocaleDateString('id-ID');
+  const entry=(dataKaryawan[nama]||[]).find(r=>r.tanggal===today);
+  if(!entry){alert('Data MASUK tidak ditemukan.');return;}
+  entry.pendapatan=pendapatan;
+  entry.komisi=Math.round(pendapatan*0.10);
+  saveLocalData();
+  renderKaryawanTable(nama);
+  document.getElementById('pendapatanForm').classList.add('hidden');
+  document.getElementById('pendapatanInput').value = '';
+});
+
+function renderAdminTable(){
+  const tbody=document.getElementById('tabelAdmin');
+  tbody.innerHTML='';
+  Object.keys(dataKaryawan).forEach(nama=>{
+    (dataKaryawan[nama]||[]).forEach((row,index)=>{
+      tbody.innerHTML+=`
+        <tr>
+          <td class="border px-4 py-2">${nama}</td>
+          <td class="border px-4 py-2">${row.tanggal}</td>
+          <td class="border px-4 py-2">${row.masuk||''}</td>
+          <td class="border px-4 py-2">${row.pulang||''}</td>
+          <td class="border px-4 py-2">${row.pendapatan||''}</td>
+          <td class="border px-4 py-2">${row.komisi||''}</td>
+          <td class="border px-4 py-2">
+            <button onclick="editEntry('${nama}',${index})" class="bg-yellow-400 px-2 py-1 rounded">Edit</button>
+          </td>
+        </tr>`;
+    });
+  });
+}
+
+function editEntry(nama,index){
+  const pendapatan=prompt("Masukkan pendapatan baru:");
+  if(pendapatan!==null){
+    dataKaryawan[nama][index].pendapatan=Number(pendapatan);
+    dataKaryawan[nama][index].komisi=Math.round(Number(pendapatan)*0.10);
+    saveLocalData();
+    renderAdminTable();
+  }
+}
+
+function selesaiKaryawan(){
+  clearSession();
+  document.getElementById('loginPage').classList.remove('hidden');
+  document.getElementById('karyawanPage').classList.add('hidden');
+}
+
+function selesaiAdmin(){
+  saveLocalData();
+  clearSession();
+  document.getElementById('loginPage').classList.remove('hidden');
+  document.getElementById('adminPage').classList.add('hidden');
+}
+</script>
+</body>
+</html>
